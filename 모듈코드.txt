@@ -1,0 +1,123 @@
+#include <U8glib.h>  //라이브러리 함수
+
+
+
+U8GLIB_NHD_C12864 u8g(13, 11, 10, 9, 8); // SPI Com: SCK = 13, MOSI = 11, CS = 10, A0 = 9, RST = 8 
+ 
+#define KEY_NONE 0  //아무키도 안눌렸을 때
+#define KEY_PREV 1  //왼쪽 방향 키
+#define KEY_NEXT 2  //오른쪽 방향 키
+
+ 
+ 
+uint8_t uiKeyCodeFirst = KEY_NONE;
+uint8_t uiKeyCodeSecond = KEY_NONE;
+uint8_t uiKeyCode = KEY_NONE;
+ 
+int adc_key_in;
+int key=-1;
+int oldkey=-1;
+ 
+
+int get_key(unsigned int input)   //키 값을 받아와서 왼쪽인지 오른쪽인지 판별하는 함수
+{   
+    if (input < 10) return 4;
+    else  if (input < 200) return 0; 
+    else  if (input < 400) return 2;
+    else  if (input < 600) return 1;
+    else  if (input < 800) return 3;    
+    else  return -1;
+}
+ 
+void uiStep(void) {   //키가 눌렷는지 안눌렸는지 확인하는 함수
+ 
+  adc_key_in = analogRead(0);    // 센서에서 아날로그 값을 받아옴
+  key = get_key(adc_key_in);  // 반환한 아날로그 값이 왼쪽인지 오른쪽인지 판별하여 key변수에 저장
+  if (key != oldkey)   // 만약 키가 눌렸으면
+   {
+    delay(50);  // 조금 기다림
+    if (key != oldkey)    
+    {
+      oldkey = key;
+      if (key >=0){
+            if ( key == 3) //왼쪽방향 키라면
+               uiKeyCodeFirst = KEY_NEXT;  //NEXT 실행 
+             else if ( key == 4 ) //오른쪽방향 키라면
+               uiKeyCodeFirst = KEY_PREV;   //PREV 실행
+             else 
+               uiKeyCodeFirst = KEY_NONE;
+               
+             uiKeyCode = uiKeyCodeFirst;           
+      }
+    }
+  }
+ delay(100);
+}
+ 
+ 
+#define MENU_ITEMS 6
+char *menu_strings[MENU_ITEMS] = { "MicroProcess", "2014136092", "Lee young Seoung", "2017136091" ,"Lee Ja Min","ok"}; //화면에 띄울 글씨
+ 
+uint8_t menu_current = 0;
+uint8_t menu_redraw_required = 0;
+uint8_t last_key_code = KEY_NONE;
+
+
+void drawMenu(void) {
+  uint8_t i, h;
+  u8g_uint_t w, d;
+ 
+  u8g.setFont(u8g_font_6x12);//4x6 5x7 5x8 6x10 6x12 6x13 (폰트크기 조정)
+  u8g.setFontPosTop(); //폰트 위치를 고정시키는 함수
+ 
+  h = u8g.getFontAscent()-u8g.getFontDescent();  //글자의높이
+  w = u8g.getWidth();  //글자의 너비
+  for( i = 0; i < MENU_ITEMS; i++ ) {
+    d = (w-u8g.getStrWidth(menu_strings[i]))/2; //d의 값이 크면 클수록 오른쪽으로 정렬. 작으면 작을수록 왼쪽 정렬
+    u8g.setDefaultForegroundColor();  //전체 화면의 글씨를 나타내는 코드 (검은줄도 안뜸)
+    if ( i == menu_current ) {  
+      u8g.drawBox(0, i*h+1, w, h);  //현재줄을 나타냄 (검은줄)
+      u8g.setDefaultBackgroundColor();  //현재줄(검은줄 상)의 글씨를 나타냄
+    }
+    u8g.drawStr(d, i*h+1, menu_strings[i]);  //현재줄만 나타내고 화면상의 전체 글씨를 지움
+  }
+}
+ 
+void updateMenu(void)    //키값을 받아오면 drowMenu()함수로 그린 현재줄을 나타내는 검은 줄을 움직임
+{
+  switch ( uiKeyCode ) {  
+    case KEY_NEXT:      //
+      menu_current++;
+      if ( menu_current >= MENU_ITEMS )menu_current = 0;
+      menu_redraw_required = 1;
+      break;
+    case KEY_PREV:
+      if ( menu_current == 0 )menu_current = MENU_ITEMS;
+      menu_current--;
+      menu_redraw_required = 1;
+      break;
+  }
+  uiKeyCode = KEY_NONE;
+}
+ 
+ 
+void setup() {
+  u8g.setContrast(0);          //u8g라이브러리 내장함수. 화면을 선명하게 해주는 코드
+  u8g.setRot180();             //u8g라이브러리 내장함수.  화면을 180도 돌릴 수 있음
+
+}
+ 
+void loop() {  
+ 
+  uiStep();                                // 조이스틱 키가 눌렸을 때 눌렸는지를 판별함
+  updateMenu();                            // 키가 눌린 값을 받아와 메뉴를 움직임
+ 
+ 
+    u8g.firstPage();      //시작
+    do  
+    {
+      drawMenu();         //현재상태를 나타내는 줄을 포함하여 화면상의 모든 글씨를 불러옴
+    }
+    
+    while( u8g.nextPage()); //끝
+ }
